@@ -122,35 +122,25 @@ async function executeSwap(swapRouter, params, signer) {
     console.log(`-------------------------------`)
 }
 
-async function main(ethAmount, swapAmount, minimumAmountOut) {
-    // Provider, Contract & Signer Instances
-    const [deployer] = await ethers.getSigners();
-    //const provider = new ethers.JsonRpcProvider(process.env.ETH_NODE_URI_MAINNET)
-    const factoryContract = new ethers.Contract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, deployer);
-    
-    const signer = deployer;
-    const quoterContract = new ethers.Contract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, signer)
-
-    const WETHContract = new ethers.Contract(WETH.address, WETH_ABI, signer);
-    const WTONContract = new ethers.Contract(WTON.address, WTON_ABI, signer);
-
-    const inputAmount = swapAmount
-    const amountIn = ethers.utils.parseUnits(inputAmount.toString(), 18);
-    minimumAmountOut = ethers.utils.parseUnits(minimumAmountOut.toString(), WTON.decimals);
+async function swapWethToWton(signer, factoryContract, quoterContract, WETHContract, WTONContract, ethAmount, swapAmount, minimumAmountOut) {
 
     try {
 
-        // Check deployer balance
-        const balance = await deployer.getBalance();
+        const inputAmount = swapAmount
+        const amountIn = ethers.utils.parseUnits(inputAmount.toString(), 18);
+        minimumAmountOut = ethers.utils.parseUnits(minimumAmountOut.toString(), WTON.decimals);
+
+        // Check signer balance
+        const balance = await signer.getBalance();
         console.log("Current ETH balance:", ethers.utils.formatEther(balance), `\n`);
 
         await getWETH(ethAmount);
 
-        const userWethBalance = Number(ethers.utils.formatEther(await WETHContract.balanceOf(deployer.getAddress())));
+        const userWethBalance = Number(ethers.utils.formatEther(await WETHContract.balanceOf(signer.getAddress())));
         console.log("Balances after ETH->WETH swap:-");
         console.log(`Current WETH balance: ${userWethBalance} \n`);
-        console.log("Current ETH balance:", ethers.utils.formatEther(await deployer.getBalance()), `\n`);
-        const WTONBalance0 = Number(ethers.utils.parseUnits(String(await WTONContract.balanceOf(deployer.getAddress())), WTON.decimals));
+        console.log("Current ETH balance:", ethers.utils.formatEther(await signer.getBalance()), `\n`);
+        const WTONBalance0 = Number(ethers.utils.parseUnits(String(await WTONContract.balanceOf(signer.getAddress())), WTON.decimals));
         console.log(`Current WTON Balance: ${WTONBalance0}`)
         
         await approveToken(WETH.address, WETH_ABI, amountIn, signer)
@@ -168,13 +158,13 @@ async function main(ethAmount, swapAmount, minimumAmountOut) {
         const swapRouter = new ethers.Contract(SWAP_ROUTER_CONTRACT_ADDRESS, SWAP_ROUTER_ABI, signer);
         await executeSwap(swapRouter, params, signer);
 
-        const userWethBalance1 = Number(ethers.utils.formatEther(await WETHContract.balanceOf(deployer.getAddress())));
+        const userWethBalance1 = Number(ethers.utils.formatEther(await WETHContract.balanceOf(signer.getAddress())));
         
         console.log(`\n-------------------------------`)
         console.log("Balances after WETH->WTON swap:-");
         console.log(`New WETH balance: ${userWethBalance1} \n`);
 
-        const WTONBalance1 = Number(ethers.utils.formatUnits(String(await WTONContract.balanceOf(deployer.getAddress())), WTON.decimals));
+        const WTONBalance1 = Number(ethers.utils.formatUnits(String(await WTONContract.balanceOf(signer.getAddress())), WTON.decimals));
         console.log(`New WTON Balance: ${WTONBalance1}`)
         console.log(`-------------------------------\n`)
     
@@ -183,4 +173,24 @@ async function main(ethAmount, swapAmount, minimumAmountOut) {
     }
 }
 
-main(10, 1, 0);
+
+
+async function main() {
+
+    // Provider, Contract & Signer Instances
+    const [deployer] = await ethers.getSigners();
+    //const provider = new ethers.JsonRpcProvider(process.env.ETH_NODE_URI_MAINNET)
+    const factoryContract = new ethers.Contract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, deployer);
+    
+    const quoterContract = new ethers.Contract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, deployer)
+
+    const WETHContract = new ethers.Contract(WETH.address, WETH_ABI, deployer);
+    const WTONContract = new ethers.Contract(WTON.address, WTON_ABI, deployer);
+    
+    swapWethToWton(deployer, factoryContract, quoterContract, WETHContract, WTONContract, 10, 1, 0);   
+    
+    
+}
+
+main();
+
