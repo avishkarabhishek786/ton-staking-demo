@@ -1,6 +1,8 @@
 (async () => {
 
     const { ethers } = require("hardhat");
+    const helpers = require("@nomicfoundation/hardhat-network-helpers");
+    const hre = require("hardhat");
     require('dotenv').config()
 
     const FACTORY_ABI = require('./abis/factory.json');
@@ -11,6 +13,9 @@
     const QUOTER_ABI = require('./abis/quoter.json');
     const LAYER2_REGISTRY_ABI = require('./abis/layer2Registry.json');
     const DEPOSIT_MANAGER_ABI = require('./abis/depositManager.json');
+    const SEIG_MANAGER_ABI = require('./abis/seigManager.json');
+    const CANDIDATE_PROXY_ABI = require('./abis/candidateProxy.json');
+    const REFACTOR_COINAGE_SNAPSHOT_ABI = require('./abis/refactorCoinageSnapshot.json');
 
     // Deployment ETHEREUM MAINNET Addresses
     const POOL_FACTORY_CONTRACT_ADDRESS = '0x1F98431c8aD98523631AE4a59f267346ea31F984';
@@ -18,6 +23,8 @@
     const SWAP_ROUTER_CONTRACT_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
     const DEPOSIT_MANAGER_ADDRESS = '0x0b58ca72b12f01fc05f8f252e226f3e2089bd00e';
     const LAYER2_REGISTRY_ADDRESS = '0x0b3E174A2170083e770D5d4Cf56774D221b7063e';
+    const SEIG_MANAGER_ADDRESS = '0x0b55a0f463b6DEFb81c6063973763951712D0E5F';
+    const layer2Address = '0xf3B17FDB808c7d0Df9ACd24dA34700ce069007DF';
 
     // Token Configuration
     const WETH = {
@@ -45,14 +52,14 @@
 
     // Provider, Contract & Signer Instances
     const [deployer] = await ethers.getSigners();
-    //const provider = new ethers.JsonRpcProvider(process.env.ETH_NODE_URI_MAINNET)
+    const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545")
     const factoryContract = new ethers.Contract(POOL_FACTORY_CONTRACT_ADDRESS, FACTORY_ABI, deployer);
     const quoterContract = new ethers.Contract(QUOTER_CONTRACT_ADDRESS, QUOTER_ABI, deployer)
     const WETHContract = new ethers.Contract(WETH.address, WETH_ABI, deployer);
     const WTONContract = new ethers.Contract(WTON.address, WTON_ABI, deployer);
     const LAYER2REGISTRYContract = new ethers.Contract(LAYER2_REGISTRY_ADDRESS, LAYER2_REGISTRY_ABI, deployer);
     const DepositManagerContract = new ethers.Contract(DEPOSIT_MANAGER_ADDRESS, DEPOSIT_MANAGER_ABI, deployer);
-
+    const SeigManagerContract = new ethers.Contract(SEIG_MANAGER_ADDRESS, SEIG_MANAGER_ABI, deployer);
 
     async function getWETH(ethAmount) {
         //const [deployer] = await ethers.getSigners();
@@ -191,40 +198,64 @@
         }
     }
 
-    async function depositWton(layer2Index = 0, wton_staking_amount) {
+    async function depositWton(wton_staking_amount, layer2Index = 0) {
         try {
-            
-        // fetch a layer2 address
-        const layer2Address = await LAYER2REGISTRYContract.layer2ByIndex(layer2Index);
 
-        console.log(`Fetching a layer2 Address:`, layer2Address, '\n');
+            // fetch a layer2 address
+            //const layer2Address = await LAYER2REGISTRYContract.layer2ByIndex(layer2Index);
+            //const layer2Address = '0xf3B17FDB808c7d0Df9ACd24dA34700ce069007DF';
+            console.log(`Fetching a layer2 Address:`, layer2Address, '\n');
 
-        // approve WTON to DepositManager contract
-        const wtonApproval = await WTONContract.populateTransaction.approve(DEPOSIT_MANAGER_ADDRESS, wton_staking_amount);
-        const wtonApprovalReceipt = await deployer.sendTransaction(wtonApproval);
-        const wtonApproved = String(await WTONContract.allowance(deployer.address, DEPOSIT_MANAGER_ADDRESS));
-        
-        console.log(`-------------------------------`)
-        console.log(`DepositManager approved to spend ${wtonApproved} WTON for ${deployer.address}`)
-        console.log(`Receipt: https://etherscan.io/tx/${wtonApprovalReceipt.hash}\n`);
-        console.log(`-------------------------------`)
+            // approve WTON to DepositManager contract
+            const wtonApproval = await WTONContract.populateTransaction.approve(DEPOSIT_MANAGER_ADDRESS, wton_staking_amount);
+            const wtonApprovalReceipt = await deployer.sendTransaction(wtonApproval);
+            const wtonApproved = String(await WTONContract.allowance(deployer.address, DEPOSIT_MANAGER_ADDRESS));
 
-        //const depositTx = await DepositManagerContract["deposit(address,uint256)"]("0x06D34f65869Ec94B3BA8c0E08BCEb532f65005E2", wtonApproved);
-        //await depositTx.wait();
-        const depositTx = await DepositManagerContract.deposit("0x06D34f65869Ec94B3BA8c0E08BCEb532f65005E2", '1000000000000000000000')
-        //console.log(`jj`, layer2Address, wtonApproved)
+            console.log(`-------------------------------`)
+            console.log(`DepositManager approved to spend ${wtonApproved} WTON for ${deployer.address}`)
+            console.log(`Receipt: https://etherscan.io/tx/${wtonApprovalReceipt.hash}\n`);
+            console.log(`-------------------------------`)
 
-        // call DepositManagerContract => deposit(address layer2, uint256 amount)
-        //const depositWtonTx = await DepositManagerContract.populateTransaction.deposit("0x06D34f65869Ec94B3BA8c0E08BCEb532f65005E2", '1000000000000000000000');
-        //const depositWtonTxReceipt = await deployer.sendTransaction(depositWtonTx);
+            // call DepositManagerContract => deposit(address layer2, uint256 amount)
+            const depositWtonTx = await DepositManagerContract.populateTransaction.deposit(layer2Address, wton_staking_amount)
+            const depositWtonTxReceipt = await deployer.sendTransaction(depositWtonTx);
 
-        // console.log(`-------------------------------`)
-        // console.log(`WTON successfully deposited into the DepositManager.`)
-        // console.log(`Receipt: https://etherscan.io/tx/${depositWtonTxReceipt.hash}`);
-        // console.log(`-------------------------------`)
+            console.log(`-------------------------------`)
+            console.log(`WTON successfully deposited into the DepositManager.`)
+            console.log(`Receipt: https://etherscan.io/tx/${depositWtonTxReceipt.hash}`);
+            console.log(`-------------------------------`)
+
+            // Fetch the coinage addres where the deposit was made
+            const coinageAddress = await SeigManagerContract.coinages(layer2Address);
+            const coinageContract = new ethers.Contract(coinageAddress, REFACTOR_COINAGE_SNAPSHOT_ABI, deployer);
+            const coinageBalance = await coinageContract.balanceOf(deployer.address);
+            console.log("SWTON balance after deposit:", ethers.utils.formatUnits(coinageBalance, 27));
+            const newWtonBalance = await WTONContract.balanceOf(deployer.address);
+            console.log("WTON balance after deposit:", ethers.utils.formatUnits(newWtonBalance, 27));
 
         } catch (e) {
-            console.error(e)    
+            console.error(e)
+        }
+    }
+
+    async function callUpdateSeigniorage() {
+        try {
+            const topUp = ethers.utils.parseEther("100").toHexString();
+            await provider.send("hardhat_setBalance", [layer2Address, topUp]);
+
+            console.log('layer2 ETH balance after topup', ethers.utils.formatUnits(String(await provider.getBalance(layer2Address)), 18))
+
+            await provider.send("hardhat_impersonateAccount", [layer2Address]);
+
+            const layer2Signer = provider.getSigner(layer2Address);
+
+            // Call the updateSeigniorage function from the Layer2 address
+            const updateSeigniorageTx = await SeigManagerContract.connect(layer2Signer).updateSeigniorage();
+            await updateSeigniorageTx.wait();
+            console.log("updateSeigniorage function ran successfully");
+            
+        } catch (error) {
+            console.error(error)
         }
     }
 
@@ -238,10 +269,21 @@
 
         await swapWethToWton(deployer, factoryContract, quoterContract, WETHContract, WTONContract, NUM_ETH_TO_WETH, NUM_WETH_TO_WTON, NUM_MIN_WTON);   
 
-        await depositWton(LAYER2_INDEX, NUM_WTON_STAKE);
+        await depositWton(NUM_WTON_STAKE, LAYER2_INDEX);
+
+        console.log("Block number before mining", await helpers.time.latestBlock());
+        console.log("Mining 10 blocks")
+        // mine 10 blocks 
+        await helpers.mine(10);
+  
+        console.log("Block number after mining", await helpers.time.latestBlock());
+
+        callUpdateSeigniorage()
 
     }
 
     main();
+
+
 
 })()
