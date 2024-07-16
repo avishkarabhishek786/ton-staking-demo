@@ -48,7 +48,6 @@
         wrapped: true
     }
 
-
     // Provider, Contract & Signer Instances
     const [deployer] = await ethers.getSigners();
     const provider = new ethers.providers.JsonRpcProvider("http://localhost:8545")
@@ -61,6 +60,7 @@
     const SeigManagerContract = new ethers.Contract(SEIG_MANAGER_ADDRESS, SEIG_MANAGER_ABI, deployer);
 
     const coinageAddress = await SeigManagerContract.coinages(layer2Address);
+    //console.log(coinageAddress)
     const coinageContract = new ethers.Contract(coinageAddress, REFACTOR_COINAGE_SNAPSHOT_ABI, deployer);
 
     async function getWETH(ethAmount) {
@@ -217,7 +217,7 @@
             const depositWtonTxReceipt = await deployer.sendTransaction(depositWtonTx);
 
             console.log(`-------------------------------`)
-            console.log(`WTON successfully deposited into the DepositManager.`)
+            console.log(`${ethers.utils.formatUnits(wton_staking_amount, 27)} WTON was deposited into the DepositManager.`)
             console.log(`Receipt: https://etherscan.io/tx/${depositWtonTxReceipt.hash}`);
             console.log(`-------------------------------`)
 
@@ -242,6 +242,11 @@
             await provider.send("hardhat_impersonateAccount", [layer2Address]);
 
             const layer2Signer = provider.getSigner(layer2Address);
+
+            const coinageBalanceBeforeUpdateSeigniorage = await coinageContract.balanceOf(deployer.address);
+            console.log("SWTON balance before callUpdateSeigniorage:", ethers.utils.formatUnits(coinageBalanceBeforeUpdateSeigniorage, 27));
+            const newWtonBalanceBeforeUpdateSeigniorage = await WTONContract.balanceOf(deployer.address);
+            console.log("WTON balance before callUpdateSeigniorage:", ethers.utils.formatUnits(newWtonBalanceBeforeUpdateSeigniorage, 27), "\n");
 
             // Call the updateSeigniorage function from the Layer2 address
             const updateSeigniorageTx = await SeigManagerContract.connect(layer2Signer).updateSeigniorage();
@@ -283,21 +288,21 @@
 
     async function main() {
 
-        const NUM_ETH_TO_WETH = 10;
-        const NUM_WETH_TO_WTON = 1;
+        const NUM_ETH_TO_WETH = 100;
+        const NUM_WETH_TO_WTON = 80;
         const NUM_MIN_WTON = 0;
-        const NUM_WTON_STAKE = ethers.utils.parseUnits('1000', 27);
-        const NUM_WTON_WITHDRAW = ethers.utils.parseUnits('999.99', 27);
+        const NUM_WTON_STAKE = ethers.utils.parseUnits('100000', 27);
+        const NUM_WTON_WITHDRAW = ethers.utils.parseUnits('99999.99', 27);
         
         await swapWethToWton(deployer, factoryContract, quoterContract, WETHContract, WTONContract, NUM_ETH_TO_WETH, NUM_WETH_TO_WTON, NUM_MIN_WTON);   
 
         await depositWton(NUM_WTON_STAKE);
 
         console.log("Block number before mining", await helpers.time.latestBlock());
-        console.log("Mining 10 blocks \n")
+        console.log("Mining 1000 blocks \n")
         
-        // mine 10 blocks 
-        await helpers.mine(10);
+        // mine 1000000 blocks 
+        await helpers.mine(1000000);
   
         console.log("Block number after mining", await helpers.time.latestBlock() , "\n");
 
